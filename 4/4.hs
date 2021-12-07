@@ -1,4 +1,5 @@
 import           Data.List (transpose)
+import           Utils     (splitChar)
 
 data Cell = Cell
     { number :: Integer
@@ -51,14 +52,6 @@ main = do
   let (lastCalled, winningBoard) = lastWinner called boards
   let sumUnmarked = getSumUnmarked winningBoard
   putStrLn $ "4b: " ++ show (sumUnmarked * lastCalled)
-
-splitChar :: Char -> String -> [String]
-splitChar c s =
-  case dropWhile (== c) s of
-    "" -> []
-    s' -> w : splitChar c s''
-      where
-        (w, s'') = break (== c) s'
 
 getIntegers :: Char -> String -> [Integer]
 getIntegers sep = map (\x -> read x :: Integer) . splitChar sep
