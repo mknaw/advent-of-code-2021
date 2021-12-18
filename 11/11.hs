@@ -1,19 +1,7 @@
 import Data.Char (digitToInt)
 import Data.List (findIndex, foldl)
 
-type Point = (Int, Int)
-type Matrix = [[Int]]
-
-(!.) :: Matrix -> Point -> Int
-matrix !. (x, y) = (matrix !! y) !! x
-
-matrixDims :: Matrix -> (Int, Int)
-matrixDims matrix = (length $ head matrix, length matrix)
-
-allPoints :: Matrix -> [Point]
-allPoints matrix = [(x, y) | x <- [0..(m-1)], y <- [0..(n-1)]]
-  where
-    (m, n) = matrixDims matrix
+import Matrix
 
 main = do
     contents <- lines <$> readFile "input.txt"
@@ -56,14 +44,6 @@ getNeighborPoints (x, y) matrix =
     xs = (x+) <$> [-1, -1, 0, 1, 1, 1, 0, -1]
     ys = (y+) <$> [0, 1, 1, 1, 0, -1, -1, -1]
     within k max = 0 <= k && k < max
-
-replaceInList :: Int -> [a] -> a -> [a]
-replaceInList index lst new = before ++ [new] ++ after
-  where (before, _:after) = splitAt index lst
-
-replaceInMatrix :: Point -> Matrix -> Int -> Matrix
-replaceInMatrix (x, y) matrix new =
-    replaceInList y matrix (replaceInList x (matrix !! y) new)
 
 incrementPoint :: Point -> Matrix -> Matrix
 incrementPoint point matrix = replaceInMatrix point matrix (matrix !. point + 1)

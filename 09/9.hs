@@ -3,8 +3,7 @@ import           Data.List  (sort)
 import           Data.Set   (Set, size, union)
 import qualified Data.Set   (filter, fromList)
 
-type Point = (Int, Int)
-type Matrix = [[Int]]
+import Matrix
 
 main = do
     matrix <- fmap (map (map digitToInt) . lines) (readFile "input.txt")
@@ -13,16 +12,8 @@ main = do
     let basinSizes = map (\p -> size $ getBasinPoints p matrix) lowPoints
     putStrLn $ "9b: " ++ show ((product . take 3 . reverse . sort) basinSizes)
 
-matrixDims :: Matrix -> (Int, Int)
-matrixDims matrix = (length $ head matrix, length matrix)
-
 matrixLookup :: Point -> Matrix -> Int
 matrixLookup (x, y) matrix = (matrix !! y) !! x
-
-allPoints :: Matrix -> [Point]
-allPoints matrix = [(x, y) | x <- [0..(m-1)], y <- [0..(n-1)]]
-  where
-    (m, n) = matrixDims matrix
 
 getNeighborPoints :: Point -> Matrix -> [Point]
 getNeighborPoints (x, y) matrix =
