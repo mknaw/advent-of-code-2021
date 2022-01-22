@@ -223,7 +223,10 @@ score state = sum $ map (\m -> cost (_amphipodType m) * distance (_move m)) move
 
 main :: IO ()
 main = do
-    print $ minimum . map score . simulate $ state
+    let state =   L.minimumBy (compare `on` score)
+                . simulate $ state
+    print $ score state
+    mapM_ print (_moves state)
   where
     amphipods :: [Amphipod]
     amphipods = [
