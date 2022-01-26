@@ -5,73 +5,40 @@ import qualified Data.Bits      as B
 import qualified Data.List      as L
 import qualified Data.Maybe     as M
 
-data CType = E | S deriving (Show)
-type Vector = (Int, Int)
-data Cuke = Cuke
-    { _type :: CType
-    , _pos  :: Vector
-    } deriving (Show)
-
-data CukeState = CukeState
-    { _cukes :: [Cuke]
-    , _maxX  :: Int
-    , _maxY  :: Int
-    }
-
 data Row = Row
     { _e :: Int
     , _s :: Int
-    } deriving (Show)
+    } deriving (Eq)
+
+data State = State
+    { _rows :: [Row]
+    , _x    :: Int
+    , _y    :: Int
+    } deriving (Eq)
+
+instance Show State where
+  show State { _rows=rows, _x=x } = "\n" `L.intercalate` map showRow rows
+    where
+      showRow :: Row -> String
+      showRow Row { _e=e, _s=s } = map f bits
+        where
+          bits = reverse [2^k | k <- [0..x - 1]]
+          f k | e .&. k /= 0 = '>'
+              | s .&. k /= 0 = 'v'
+              | otherwise    = '.'
+
+newState :: Int -> [Row] -> State
+newState x rows = State { _rows=rows, _x=x, _y=length rows }
 
 main :: IO ()
 main = do
-    lines' <- lines <$> readFile "input.txt"
-    let bitSize = length . head $ lines'
-    let rows = map parseBinary lines'
-    mapM_ (putStrLn . printRow bitSize) (rotateCCW bitSize rows)
-    -- print $ map _s rows
-    -- putStrLn $ printRow bitSize (column bitSize rows 0)
+    state <- parseState . lines <$> readFile "input.txt"
+    print $ stepsUntilFixed state
 
-printCukes :: CukeState -> IO ()
-printCukes cs = do
-    forM_ [0.._maxY cs] $ \y -> do
-        let row = map (\x -> charFor (x, y)) [0.._maxX cs]
-        putStrLn row
-  where
-    charFor (x, y) =
-        case L.find (\c -> _pos c == (x, y)) (_cukes cs) of
-            Just Cuke { _type=E } -> '>'
-            Just Cuke { _type=S } -> 'v'
-            Nothing               -> '.'
-
-parseLines :: [String] -> [Cuke]
-parseLines ls = concatMap cukify byRow
-  where
-    byRow = zip [0..] $ map parseLine ls
-    cukify (y, lst) = [Cuke { _type=snd p, _pos=(fst p, y) } | p <- lst]
-
-    parseLine :: String -> [(Int, CType)]
-    parseLine s = map (B.second M.fromJust)
-                . filter (M.isJust . snd)
-                . zip [0..] $ map parse s
-      where
-        parse :: Char -> Maybe CType
-        parse c = case c of '>' -> Just E
-                            'v' -> Just S
-                            _   -> Nothing
-
-shift :: Int -> Int
-shift i = B.shiftR i 1 .|. B.shiftL end total
-  where
-    end = i .&. 1
-    total = 5  -- TODO
-
-move :: Int -> Int
-move i = unmoved .|. moved
-  where
-    shifted = shift i
-    moved = shifted .&. B.complement i
-    unmoved = i .&. B.complement (B.shiftL 1 moved)
+parseState :: [String] -> State
+parseState ls = newState x rows
+  where rows = map parseBinary ls
+        x = length . head $ ls
 
 parseBinary :: String -> Row
 parseBinary s = Row { _e=parseBinary' '>' s, _s=parseBinary' 'v' s }
@@ -82,24 +49,66 @@ parseBinary s = Row { _e=parseBinary' '>' s, _s=parseBinary' 'v' s }
         f acc c' = 2 * acc + k
             where k = if c' == c then 1 else 0
 
-rotateCCW :: Int -> [Row] -> [Row]
-rotateCCW b rows = map (\k -> L.foldr (fold k) empty rows) bitMaps
+shiftR :: Int -> Int -> Int
+shiftR b i = B.shiftR i 1 .|. B.shiftL end (b - 1)
   where
-    bitMaps = reverse [2 ^ k | k <- [0..b - 1]]
+    end = i .&. 1
+
+shiftL :: Int -> Int -> Int
+shiftL b i = (B.shiftL i 1 .|. start) `B.clearBit` b
+  where
+    k = 2 ^ (b - 1)
+    start = min 1 $ i .&. k
+
+move :: Int -> Int -> Int -> Int
+move b i mask = unmoved .|. moved
+  where
+    shifted = shiftR b i
+    moved = shifted .&. B.complement mask
+    unmoved = i .&. B.complement (shiftL b moved)
+
+-- TODO dedupe these
+moveE :: State -> State
+moveE State { _rows=rows, _x=x } = newState x rows'
+  where
+    rows' = map f rows
+    f row@Row{ _e=e, _s=s } = row { _e=move x e (e .|. s) }
+
+moveS :: State -> State
+moveS State { _rows=rows, _x=x } = newState x rows'
+  where
+    rows' = map f rows
+    f row@Row{ _e=e, _s=s } = row { _s=move x s (s .|. e) }
+
+-- TODO dedupe these
+rotateCCW :: State -> State
+rotateCCW State { _rows=rows, _x=x, _y=y } = newState y rows'
+  where
+    bitMaps = [2 ^ k | k <- [0..x - 1]]
     empty = Row { _e=0, _s=0 }
     fold k row Row { _s=s, _e=e } = Row { _e=2*e + e', _s=2*s + s' }
       where s' = min 1 $ _s row .&. k
             e' = min 1 $ _e row .&. k
+    rows' = map (\k -> L.foldr (fold k) empty (reverse rows)) bitMaps
 
-printRow :: Int -> Row -> String
-printRow b Row { _e=e, _s=s } = map f bits
+rotateCW :: State -> State
+rotateCW State { _rows=rows, _x=x, _y=y } = newState y rows'
   where
-    bits = reverse [2^k | k <- [0..b - 1]]
-    f k | e .&. k /= 0 = '>'
-        | s .&. k /= 0 = 'v'
-        | otherwise      = '.'
+    bitMaps = reverse [2 ^ k | k <- [0..x - 1]]
+    empty = Row { _e=0, _s=0 }
+    fold k row Row { _s=s, _e=e } = Row { _e=2*e + e', _s=2*s + s' }
+      where s' = min 1 $ _s row .&. k
+            e' = min 1 $ _e row .&. k
+    rows' = map (\k -> L.foldr (fold k) empty rows) bitMaps
 
-column b rows i = Row { _e=0, _s=s }
+step :: State -> State
+step = rotateCW . moveS . rotateCCW . moveE
+
+stepsUntilFixed :: State -> Int
+stepsUntilFixed = stepsUntilFixed' 1
   where
-    k = 2 ^ (b - i - 1)
-    s = L.foldl1' (.|.) . map (\row -> _s row .&. k) $ rows
+    stepsUntilFixed' :: Int -> State -> Int
+    stepsUntilFixed' k state
+        | state == state' = k
+        | otherwise = stepsUntilFixed' (k + 1) state'
+      where state' = step state
