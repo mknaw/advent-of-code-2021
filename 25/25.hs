@@ -1,108 +1,106 @@
-import           Control.Monad  (forM, forM_)
-import qualified Data.Bifunctor as B
-import           Data.Bits      ((.&.), (.|.))
-import qualified Data.Bits      as B
-import qualified Data.List      as L
-import qualified Data.Maybe     as M
+import           Control.Monad      (forM, forM_)
+import           Data.Array.IArray  ((!))
+import qualified Data.Array.IArray  as IA
+import qualified Data.Array.Unboxed as UA
+import qualified Data.Bifunctor     as B
+-- import           Data.Bits          ((.&.), (.|.))
+import qualified Data.Bits          as B
+import qualified Data.List          as L
+import qualified Data.Maybe         as M
 
-data Row = Row
-    { _e :: Int
-    , _s :: Int
-    } deriving (Eq)
+type RowArray = UA.UArray Int Bool
 
-data State = State
-    { _rows :: [Row]
-    , _x    :: Int
-    , _y    :: Int
-    } deriving (Eq)
+toRowArray :: [Bool] -> RowArray
+toRowArray lst = IA.array (0, length lst - 1) $ zip [0..] lst
+
+combine :: (Bool -> Bool -> Bool) -> RowArray -> RowArray -> RowArray
+combine f arr1 arr2
+    | (l, u) /= IA.bounds arr2 = error "uhoh"
+    | otherwise = IA.array (l, u) [(i, f (arr1!i) (arr2!i)) | i <- IA.indices arr1]
+  where (l, u) = IA.bounds arr1
+
+(.|.) :: RowArray -> RowArray -> RowArray
+(.|.) = combine (||)
+
+(.&.) :: RowArray -> RowArray -> RowArray
+(.&.) = combine (&&)
+
+(.-.) :: RowArray -> RowArray -> RowArray
+(.-.) = combine (\a b -> a && not b)
+
+-- TODO ? now thinking with this array stuff that it would be
+-- better to have some boxed finite 3-state thing instead of 2 matrices
+-- TODO maybe quicker to operate on the matrix in place?
+data State = State [RowArray] [RowArray] deriving (Eq)
 
 instance Show State where
-  show State { _rows=rows, _x=x } = "\n" `L.intercalate` map showRow rows
+  show (State e s) =
+      L.intercalate "\n" $ zipWith (curry showPair) e s
     where
-      showRow :: Row -> String
-      showRow Row { _e=e, _s=s } = map f bits
-        where
-          bits = reverse [2^k | k <- [0..x - 1]]
-          f k | e .&. k /= 0 = '>'
-              | s .&. k /= 0 = 'v'
-              | otherwise    = '.'
-
-newState :: Int -> [Row] -> State
-newState x rows = State { _rows=rows, _x=x, _y=length rows }
+      showPair :: (RowArray, RowArray) -> String
+      showPair (e, s) = map f $ IA.indices e
+        where f i | e!i = '>'
+                  | s!i       = 'v'
+                  | otherwise = '.'
 
 main :: IO ()
 main = do
     state <- parseState . lines <$> readFile "input.txt"
     print $ stepsUntilFixed state
 
+arrayForChar :: Char -> String -> RowArray
+arrayForChar c = toRowArray . map (== c)
+
 parseState :: [String] -> State
-parseState ls = newState x rows
-  where rows = map parseBinary ls
-        x = length . head $ ls
+parseState ls = State e s
+  where e = map (arrayForChar '>') ls
+        s = map (arrayForChar 'v') ls
 
-parseBinary :: String -> Row
-parseBinary s = Row { _e=parseBinary' '>' s, _s=parseBinary' 'v' s }
-  where
-    parseBinary' :: Char -> String -> Int
-    parseBinary' c = L.foldl' f 0
-      where
-        f acc c' = 2 * acc + k
-            where k = if c' == c then 1 else 0
+-- TODO could extract the non `f` bits to a fn
 
-shiftR :: Int -> Int -> Int
-shiftR b i = B.shiftR i 1 .|. B.shiftL end (b - 1)
+shiftR :: RowArray -> RowArray
+shiftR arr = IA.ixmap (l, u) f arr
   where
-    end = i .&. 1
+    (l, u) = IA.bounds arr
+    f i | i == l    = u
+        | otherwise = i - 1
 
-shiftL :: Int -> Int -> Int
-shiftL b i = (B.shiftL i 1 .|. start) `B.clearBit` b
+shiftL :: RowArray -> RowArray
+shiftL arr = IA.ixmap (l, u) f arr
   where
-    k = 2 ^ (b - 1)
-    start = min 1 $ i .&. k
+    (l, u) = IA.bounds arr
+    f i | i == u    = l
+        | otherwise = i + 1
 
-move :: Int -> Int -> Int -> Int
-move b i mask = unmoved .|. moved
+move :: RowArray -> RowArray -> RowArray
+move arr mask = unmoved .|. moved
   where
-    shifted = shiftR b i
-    moved = shifted .&. B.complement mask
-    unmoved = i .&. B.complement (shiftL b moved)
+    shifted = shiftR arr
+    moved = shifted .-. mask
+    unmoved = arr .-. shiftL moved
 
 -- TODO dedupe these
+
 moveE :: State -> State
-moveE State { _rows=rows, _x=x } = newState x rows'
-  where
-    rows' = map f rows
-    f row@Row{ _e=e, _s=s } = row { _e=move x e (e .|. s) }
+moveE (State e s) = State e' s
+  where e' = zipWith (\e s -> move e (e .|. s)) e s
 
 moveS :: State -> State
-moveS State { _rows=rows, _x=x } = newState x rows'
-  where
-    rows' = map f rows
-    f row@Row{ _e=e, _s=s } = row { _s=move x s (s .|. e) }
+moveS (State e s) = State e s'
+  where s' = zipWith (\e s -> move s (e .|. s)) e s
 
--- TODO dedupe these
-rotateCCW :: State -> State
-rotateCCW State { _rows=rows, _x=x, _y=y } = newState y rows'
-  where
-    bitMaps = [2 ^ k | k <- [0..x - 1]]
-    empty = Row { _e=0, _s=0 }
-    fold k row Row { _s=s, _e=e } = Row { _e=2*e + e', _s=2*s + s' }
-      where s' = min 1 $ _s row .&. k
-            e' = min 1 $ _e row .&. k
-    rows' = map (\k -> L.foldr (fold k) empty (reverse rows)) bitMaps
+column :: [RowArray] -> Int -> RowArray
+column arrs i = toRowArray $ map (! i) arrs
 
-rotateCW :: State -> State
-rotateCW State { _rows=rows, _x=x, _y=y } = newState y rows'
-  where
-    bitMaps = reverse [2 ^ k | k <- [0..x - 1]]
-    empty = Row { _e=0, _s=0 }
-    fold k row Row { _s=s, _e=e } = Row { _e=2*e + e', _s=2*s + s' }
-      where s' = min 1 $ _s row .&. k
-            e' = min 1 $ _e row .&. k
-    rows' = map (\k -> L.foldr (fold k) empty rows) bitMaps
+transpose :: [RowArray] -> [RowArray]
+transpose arrs = map (column arrs) (IA.indices . head $ arrs)
+
+-- TODO could make State a functor as an exercise in FP zen :^)
+transposeState :: State -> State
+transposeState (State e s) = State (transpose e) (transpose s)
 
 step :: State -> State
-step = rotateCW . moveS . rotateCCW . moveE
+step = transposeState . moveS . transposeState . moveE
 
 stepsUntilFixed :: State -> Int
 stepsUntilFixed = stepsUntilFixed' 1
