@@ -1,0 +1,12 @@
+.stack-work/
+*~
+/data
+/prompt
+/logs
+/bench-out
+/tmp
+/scratch
+_*
+/dist-newstyle
+/tags
+.DS_Store

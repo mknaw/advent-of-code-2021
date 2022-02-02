@@ -1,0 +1,54 @@
+name:                advent21
+version:             0.1.0.0
+github:              "mknaw/advent21"
+license:             BSD3
+author:              "Author name here"
+maintainer:          "example@example.com"
+copyright:           "2022 Author name here"
+
+extra-source-files:
+- README.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/mknaw/advent21#readme>
+
+dependencies:
+- array
+- base >= 4.7 && < 5
+- containers
+- linear
+- optparse-applicative
+- psqueues
+- transformers
+- vector
+
+library:
+  source-dirs: src
+
+executables:
+  advent21:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - advent21
+
+tests:
+  advent21-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - advent21

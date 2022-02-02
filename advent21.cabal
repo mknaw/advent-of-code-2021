@@ -1,0 +1,107 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.4.
+--
+-- see: https://github.com/sol/hpack
+
+name:           advent21
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/mknaw/advent21#readme>
+homepage:       https://github.com/mknaw/advent21#readme
+bug-reports:    https://github.com/mknaw/advent21/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2022 Author name here
+license:        BSD3
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/mknaw/advent21
+
+library
+  exposed-modules:
+      Matrix
+      Problems.Day01.Day01
+      Problems.Day02.Day02
+      Problems.Day03.Day03
+      Problems.Day04.Day04
+      Problems.Day05.Day05
+      Problems.Day06.Day06
+      Problems.Day07.Day07
+      Problems.Day08.Day08
+      Problems.Day09.Day09
+      Problems.Day10.Day10
+      Problems.Day11.Day11
+      Problems.Day12.Day12
+      Problems.Day13.Day13
+      Problems.Day14.Day14
+      Problems.Day15.Day15
+      Problems.Day16.Day16
+      Problems.Day17.Day17
+      Problems.Day18.Day18
+      Problems.Day19.Day19
+      Problems.Day20.Day20
+      Problems.Day21.Day21
+      Problems.Day22.Day22
+      Problems.Day23.Day23
+      Problems.Day24.Day24
+      Problems.Day25.Day25
+      Problems.Problems
+      Utils
+      Utils.Matrix
+  other-modules:
+      Paths_advent21
+  hs-source-dirs:
+      src
+  build-depends:
+      array
+    , base >=4.7 && <5
+    , containers
+    , linear
+    , optparse-applicative
+    , psqueues
+    , transformers
+    , vector
+  default-language: Haskell2010
+
+executable advent21
+  main-is: Main.hs
+  other-modules:
+      Paths_advent21
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      advent21
+    , array
+    , base >=4.7 && <5
+    , containers
+    , linear
+    , optparse-applicative
+    , psqueues
+    , transformers
+    , vector
+  default-language: Haskell2010
+
+test-suite advent21-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_advent21
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      advent21
+    , array
+    , base >=4.7 && <5
+    , containers
+    , linear
+    , optparse-applicative
+    , psqueues
+    , transformers
+    , vector
+  default-language: Haskell2010
